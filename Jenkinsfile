@@ -97,8 +97,8 @@ pipeline {
         stage('Lint Dockerfile') {
             steps {
                 script {
-                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > hadolint_report.html'
-                    archiveArtifacts artifacts: 'hadolint_report.html', allowEmptyArchive: true
+                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > best_practices.txt'
+                    archiveArtifacts artifacts: 'best_practices.txt', allowEmptyArchive: true
                 }
             }
         }
