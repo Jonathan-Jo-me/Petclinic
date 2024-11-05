@@ -49,7 +49,7 @@ pipeline {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                     timeout(time: 60, unit: 'MINUTES') {
-                        dependencyCheck additionalArguments: '--scan ./ --format HTML', odcInstallation: 'dp'
+                        dependencyCheck additionalArguments: '--scan ./ --format HTML --failOnCVSS 8', odcInstallation: 'dp'
                         dependencyCheckPublisher pattern: 'dependency-check-report.xml'
                     }
                 }
