@@ -33,7 +33,7 @@ pipeline {
         stage("Sonarqube Analysis") {
             steps {
                 withSonarQubeEnv('sonar-scanner') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=petclinic \
+                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=pet \
                     -Dsonar.java.binaries=. \
                     -Dsonar.projectKey=devsecops \
                     -Dsonar.coverage.exclusions=**/test/** \
