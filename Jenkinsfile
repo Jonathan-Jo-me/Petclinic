@@ -33,9 +33,9 @@ pipeline {
         stage("Sonarqube Analysis") {
             steps {
                 withSonarQubeEnv('sonar-scanner') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=pet \
+                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=sonar \
                     -Dsonar.java.binaries=. \
-                    -Dsonar.projectKey=devsecops \
+                    -Dsonar.projectKey=sonar \
                     -Dsonar.coverage.exclusions=**/test/** \
                     -Dsonar.coverage.minimumCoverage=80 \
                     -Dsonar.security.hotspots=true \
