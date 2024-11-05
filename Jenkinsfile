@@ -132,7 +132,7 @@ pipeline {
                         
                         def status = sh(script: '''
                         docker run -v $PWD:/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
-                        ''' + zapScript + ''' -t https://www.example.com > ''' + reportFile, returnStatus: true)
+                        ''' + zapScript + ''' -t http://ben.jonathanjo.great-site.net > ''' + reportFile, returnStatus: true)
                         
                         archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
                     }
@@ -183,7 +183,7 @@ pipeline {
                     from: 'jonathanjonathanjo10@gmail.com',
                     replyTo: 'jonathanjonathanjo10@gmail.com',
                     mimeType: 'text/html',
-                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/*.html'
+                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/zap_baseline_report.html'
                 )
             }
         }
