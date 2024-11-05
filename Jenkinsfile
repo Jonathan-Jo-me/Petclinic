@@ -8,13 +8,13 @@ pipeline {
     
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_REGION = 'ap-south-1'                            // Set to your AWS region
+        AWS_REGION = 'ap-south-1'                            
         ECR_REGISTRY = '836759839628.dkr.ecr.ap-south-1.amazonaws.com'
-        ECR_REPOSITORY = 'jenkins/dockerimage'               // Specify the full ECR repository path
+        ECR_REPOSITORY = 'jenkins/dockerimage'               
         IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}" 
     }
+    
     parameters {
-        // Active Choice parameter with 3 scan options
         choice(
             name: 'SCAN_TYPE',
             choices: ['Baseline', 'API', 'FULL'],
@@ -63,7 +63,6 @@ pipeline {
                 script {
                     echo "Building Docker image"
                     sh "docker build -t $IMAGE_TAG ."
-                    
                 }
             }
         }
@@ -91,9 +90,7 @@ pipeline {
         
         stage('Lint Dockerfile') {
             steps {
-                // Step 1: Lint the Dockerfile using Hadolint ( -Dsonar.qualitygate.wait=true \ )
                 script {
-                    // Run Hadolint Docker image and save output to a text file
                     sh 'docker run --rm -i hadolint/hadolint < Dockerfile > hadolint_report.html'
                     archiveArtifacts artifacts: 'hadolint_report.html', allowEmptyArchive: true
                 }
@@ -112,7 +109,6 @@ pipeline {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                     script {
-                        // Define the script based on selected parameter
                         def zapScript
                         def reportFile
                         if (params.SCAN_TYPE == 'Baseline') {
@@ -125,19 +121,78 @@ pipeline {
                             zapScript = 'zap-full-scan.py'
                             reportFile = 'zap_full_report.html'
                         }
-
-                        // Run the respective ZAP script using Docker
+                        
                         def status = sh(script: '''
                         docker run -v $PWD:/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
                         ''' + zapScript + ''' -t https://www.example.com > ''' + reportFile, returnStatus: true)
                         
-                       
                         archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
                     }
                 }
             }
         }
-        
-        
     }
+    
+    post {
+        success {
+            slackNotify("SUCCESS")
+        }
+        failure {
+            slackNotify("FAILURE")
+        }
+        unstable {
+            slackNotify("UNSTABLE")
+        }
+        always {
+            script {
+                def jobName = env.JOB_NAME
+                def buildNumber = env.BUILD_NUMBER
+                def buildUrl = env.BUILD_URL
+                def pipelineStatus = currentBuild.result ?: 'UNKNOWN'
+                def bannerColor = (pipelineStatus == 'SUCCESS') ? 'green' : 'red'
+                
+                def commitId = env.GIT_COMMIT ?: 'N/A'
+                def triggeredBy = currentBuild.getCauses()[0]?.userId ?: 'Automated Trigger'
+                
+                def body = """<html>
+                                <body>
+                                    <div style="border: 4px solid ${bannerColor}; padding: 10px;">
+                                        <h2>${jobName} - Build ${buildNumber}</h2>
+                                        <div style="background-color: ${bannerColor}; padding: 10px;">
+                                            <h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
+                                        </div>
+                                        <p><strong>Build URL:</strong> <a href="${buildUrl}">${buildUrl}</a></p>
+                                        <p><strong>Commit ID:</strong> ${commitId}</p>
+                                        <p><strong>Triggered By:</strong> ${triggeredBy}</p>
+                                    </div>
+                                </body>
+                              </html>"""
+
+                emailext (
+                    subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
+                    body: body,
+                    to: 'jonathanjonathanjo10@gmail.com',
+                    from: 'jonathanjonathanjo10@gmail.com',
+                    replyTo: 'jonathanjonathanjo10@gmail.com',
+                    mimeType: 'text/html',
+                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/*.html'
+                )
+            }
+        }
+    }
+}
+
+// Function to send Slack notifications
+def slackNotify(String status) {
+    def triggerAuthor = currentBuild.changeSets.collectMany { changeSet ->
+        changeSet.items.collect { it.author.fullName }
+    }.join(', ') ?: "Unknown"
+
+    slackSend (
+        color: (status == "SUCCESS") ? "good" : ((status == "FAILURE") ? "danger" : "warning"),
+        message: "*Build Status:* ${status}\n" +
+                 "*Build Number:* ${env.BUILD_NUMBER}\n" +
+                 "*Build Link:* <${env.BUILD_URL}|Click Here>\n" +
+                 "*Triggered By:* ${triggerAuthor}"
+    )
 }
