@@ -1,27 +1,28 @@
 pipeline {
     agent any 
-    
+
     tools {
         jdk 'jdk17' 
         maven 'maven'
     }
-    
+
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_REGION = 'ap-south-1'                            
+        AWS_REGION = 'ap-south-1'                            // Set to your AWS region
         ECR_REGISTRY = '836759839628.dkr.ecr.ap-south-1.amazonaws.com'
-        ECR_REPOSITORY = 'jenkins/dockerimage'               
+        ECR_REPOSITORY = 'jenkins/dockerimage'               // Specify the full ECR repository path
         IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}" 
     }
-    
+
     parameters {
+        // Active Choice parameter with 3 scan options
         choice(
             name: 'SCAN_TYPE',
             choices: ['Baseline', 'API', 'FULL'],
             description: 'Select the type of ZAP scan you want to run.'
         )
     }
-    
+
     stages {
         stage(" Maven Test ") {
             steps {
@@ -43,6 +44,7 @@ pipeline {
                 }
             }
         }
+        
         stage('Owasp Dependency Check') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -53,11 +55,13 @@ pipeline {
                 }
             }
         }
+        
         stage("Maven Build") {
             steps {
                 sh "mvn clean install"
             }
         }
+        
         stage('Build Docker Image') {
             steps {
                 script {
@@ -66,6 +70,7 @@ pipeline {
                 }
             }
         }
+        
         stage('Login to ECR') {
             steps {
                 withCredentials([aws(credentialsId: 'aws-credentials', region: AWS_REGION)]) {
@@ -79,6 +84,7 @@ pipeline {
                 }
             }
         }
+        
         stage('Push Docker Image to ECR') {
             steps {
                 script {
@@ -96,6 +102,7 @@ pipeline {
                 }
             }
         }
+        
         stage('Docker Image Vulnerability Scanning') {
             steps {
                 script {
@@ -105,6 +112,7 @@ pipeline {
                 }
             }
         }
+        
         stage('ZAP Scan') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
@@ -152,7 +160,7 @@ pipeline {
                 def bannerColor = (pipelineStatus == 'SUCCESS') ? 'green' : 'red'
                 
                 def commitId = env.GIT_COMMIT ?: 'N/A'
-                def triggeredBy = currentBuild.getCauses()[0]?.userId ?: 'Automated Trigger'
+                def triggeredBy = currentBuild.getBuildCauses().collect { cause -> cause.userId ?: 'Automated Trigger' }.join(", ")
                 
                 def body = """<html>
                                 <body>
