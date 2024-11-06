@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 836759839628.dkr.ecr.ap-south-1.amazonaws.com/jenkins/dockerimage
-  tag: "6"
+  tag: "21"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: ecr-secret
@@ -10,10 +10,10 @@ imagePullSecrets: ecr-secret
 service:
   type: ClusterIP
   port: 80
-  targetPort: 3000
+  targetPort: 8000
 
 ingress:
   enabled: true
   scheme: internet-facing
   targetType: ip
-  host: ben.jonathanjo.great-site.net
+  host: john.jonathanjo.great-site.net
