@@ -45,14 +45,12 @@ pipeline {
             }
         }
         
-        stage('Owasp Dependency Check') {
+        stage("OWASP Dependency Check") {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    timeout(time: 60, unit: 'MINUTES') {
-                        dependencyCheck additionalArguments: '--scan ./ --format HTML --failOnCVSS 5', odcInstallation: 'dp'
-                        dependencyCheckPublisher pattern: 'dependency-check-report.xml'
-                    }
-                }
+                dependencyCheck additionalArguments: '--scan ./ --format ALL', 
+                                odcInstallation: 'dp', 
+                                stopBuild: true  
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
         
