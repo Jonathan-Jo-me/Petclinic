@@ -5,7 +5,7 @@ image:
   tag: "21"
   pullPolicy: IfNotPresent
 
-imagePullSecrets: ecr-secret
+#imagePullSecrets: ecr-secret
 
 service:
   type: ClusterIP
