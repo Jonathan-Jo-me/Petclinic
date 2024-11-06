@@ -42,7 +42,7 @@ pipeline {
             }
         }
 
-        stage('Dependency Scanning with OWASP Dependency-Check') {
+        stage('OWASP Dependency-Check') {
             steps {
                 dependencyCheck additionalArguments: '--scan ./ --format ALL', 
                                 odcInstallation: 'dp', 
@@ -82,7 +82,7 @@ pipeline {
             }
         }
 
-        stage('OWASP ZAP Vulnerability Scanning') {
+        stage('OWASP ZAP Scan') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                     script {
@@ -94,16 +94,16 @@ pipeline {
                         } else if (params.SCAN_TYPE == 'API') {
                             zapScript = 'zap-api-scan.py'
                             reportFile = 'zap_api_report.html'
-                        } else {
+                        } else if (params.SCAN_TYPE == 'FULL') {
                             zapScript = 'zap-full-scan.py'
                             reportFile = 'zap_full_report.html'
                         }
                         
-                        sh '''
+                        def status = sh(script: '''
                         docker run -v $PWD:/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
-                        ''' + zapScript + ''' -t http://localhost:8080 > ''' + reportFile
+                        ''' + zapScript + ''' -t https://jonathanjo.wixstudio.io/portfolio > ''' + reportFile, returnStatus: true)
                         
-                        archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
+                        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
                     }
                 }
             }
@@ -122,7 +122,7 @@ pipeline {
         }
     }
 
-    post {
+   post {
         success {
             slackNotify("SUCCESS")
         }
@@ -134,31 +134,44 @@ pipeline {
         }
         always {
             script {
-                def body = """
-                    <html>
-                    <body>
-                        <div style="padding: 10px;">
-                            <h2>${env.JOB_NAME} - Build ${env.BUILD_NUMBER}</h2>
-                            <h3>Status: ${currentBuild.result ?: 'UNKNOWN'}</h3>
-                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                            <p><strong>Commit ID:</strong> ${env.GIT_COMMIT ?: 'N/A'}</p>
-                            <p><strong>Triggered By:</strong> ${currentBuild.getBuildCauses().collect { it.userId ?: 'Automated Trigger' }.join(", ")}</p>
-                        </div>
-                    </body>
-                    </html>
-                """
+                def jobName = env.JOB_NAME
+                def buildNumber = env.BUILD_NUMBER
+                def buildUrl = env.BUILD_URL
+                def pipelineStatus = currentBuild.result ?: 'UNKNOWN'
+                def bannerColor = (pipelineStatus == 'SUCCESS') ? 'green' : 'red'
+                
+                def commitId = env.GIT_COMMIT ?: 'N/A'
+                def triggeredBy = currentBuild.getBuildCauses().collect { cause -> cause.userId ?: 'Automated Trigger' }.join(", ")
+                
+                def body = """<html>
+                                <body>
+                                    <div style="border: 4px solid ${bannerColor}; padding: 10px;">
+                                        <h2>${jobName} - Build ${buildNumber}</h2>
+                                        <div style="background-color: ${bannerColor}; padding: 10px;">
+                                            <h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
+                                        </div>
+                                        <p><strong>Build URL:</strong> <a href="${buildUrl}">${buildUrl}</a></p>
+                                        <p><strong>Commit ID:</strong> ${commitId}</p>
+                                        <p><strong>Triggered By:</strong> ${triggeredBy}</p>
+                                    </div>
+                                </body>
+                              </html>"""
+
                 emailext (
-                    subject: "${env.JOB_NAME} - Build ${env.BUILD_NUMBER} - ${currentBuild.result ?: 'UNKNOWN'}",
+                    subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
                     body: body,
-                    to: 'recipient@example.com',
+                    to: 'jonathanjonathanjo10@gmail.com',
+                    from: 'jonathanjonathanjo10@gmail.com',
+                    replyTo: 'jonathanjonathanjo10@gmail.com',
                     mimeType: 'text/html',
-                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.txt, **/zap_*.html'
+                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/zap_baseline_report.html, **/zap_api_report.html, **/zap_full_report.html'
                 )
             }
         }
     }
 }
 
+// Function to send Slack notifications
 def slackNotify(String status) {
     def triggerAuthor = currentBuild.changeSets.collectMany { changeSet ->
         changeSet.items.collect { it.author.fullName }
