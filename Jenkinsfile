@@ -11,7 +11,7 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         ECR_REGISTRY = '836759839628.dkr.ecr.ap-south-1.amazonaws.com'
         ECR_REPOSITORY = 'jenkins/dockerimage'
-        IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}-${env.GIT_COMMIT}"
+        IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}"
     }
 
     parameters {
@@ -72,7 +72,7 @@ pipeline {
             }
         }
 
-        stage('Docker Image Vulnerability Scanning with Trivy') {
+        stage('Trivy Scan') {
             steps {
                 script {
                     sh 'trivy image --severity HIGH,CRITICAL --format table $IMAGE_TAG > trivy-report.txt'
