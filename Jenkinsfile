@@ -1,5 +1,5 @@
 pipeline {
-    agent any 
+    agent any
 
     tools {
         jdk 'jdk17' 
@@ -8,14 +8,13 @@ pipeline {
 
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_REGION = 'ap-south-1'                            // Set to your AWS region
+        AWS_REGION = 'ap-south-1'
         ECR_REGISTRY = '836759839628.dkr.ecr.ap-south-1.amazonaws.com'
-        ECR_REPOSITORY = 'jenkins/dockerimage'               // Specify the full ECR repository path
-        IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}" 
+        ECR_REPOSITORY = 'jenkins/dockerimage'
+        IMAGE_TAG = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_NUMBER}-${env.GIT_COMMIT}"
     }
 
     parameters {
-        // Active Choice parameter with 3 scan options
         choice(
             name: 'SCAN_TYPE',
             choices: ['Baseline', 'API', 'FULL'],
@@ -24,86 +23,56 @@ pipeline {
     }
 
     stages {
-        stage(" Maven Test ") {
+        stage('Unit Test') {
             steps {
                 sh "mvn test"
             }
         }
-        
-        stage("Sonarqube Analysis") {
+
+        stage('SonarQube SAST Analysis') {
             steps {
                 withSonarQubeEnv('sonar-scanner') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=sonar \
-                    -Dsonar.java.binaries=. \
-                    -Dsonar.projectKey=sonar \
-                    -Dsonar.coverage.exclusions=**/test/** \
-                    -Dsonar.coverage.minimumCoverage=80 \
-                    -Dsonar.security.hotspots=true \
-                    -Dsonar.issue.severity=HIGH
+                    sh '''
+                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=petclinic \
+                    -Dsonar.java.binaries=. -Dsonar.coverage.exclusions=**/test/** \
+                    -Dsonar.coverage.minimumCoverage=80 -Dsonar.issue.severity=HIGH \
+                    -Dsonar.security.hotspots=true
                     '''
                 }
             }
         }
-        
-        stage('Owasp Dependency Check') {
+
+        stage('Dependency Scanning with OWASP Dependency-Check') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    timeout(time: 60, unit: 'MINUTES') {
-                        dependencyCheck additionalArguments: '--scan ./ --format HTML --failOnCVSS 5', odcInstallation: 'dp'
-                        dependencyCheckPublisher pattern: 'dependency-check-report.xml'
-                    }
+                dependencyCheck additionalArguments: '--scan ./ --format ALL', 
+                                odcInstallation: 'dp', 
+                                stopBuild: true
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+
+        stage('Build Test') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Lint Dockerfile with Hadolint') {
+            steps {
+                script {
+                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > hadolint_report.txt'
+                    archiveArtifacts artifacts: 'hadolint_report.txt', allowEmptyArchive: true
                 }
             }
         }
-        
-        stage("Maven Build") {
-            steps {
-                sh "mvn clean install"
-            }
-        }
-        
+
         stage('Build Docker Image') {
             steps {
-                script {
-                    echo "Building Docker image"
-                    sh "docker build -t $IMAGE_TAG ."
-                }
+                sh "docker build -t $IMAGE_TAG ."
             }
         }
-        
-        stage('Login to ECR') {
-            steps {
-                withCredentials([aws(credentialsId: 'aws-credentials', region: AWS_REGION)]) {
-                    script {
-                        echo "Logging in to Amazon ECR"
-                        sh """
-                            aws ecr get-login-password --region $AWS_REGION | \
-                            docker login --username AWS --password-stdin $ECR_REGISTRY
-                        """
-                    }
-                }
-            }
-        }
-        
-        stage('Push Docker Image to ECR') {
-            steps {
-                script {
-                    echo "Pushing Docker image to ECR"
-                    sh "docker push $IMAGE_TAG"
-                }
-            }
-        }
-        
-        stage('Lint Dockerfile') {
-            steps {
-                script {
-                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > best_practices.txt'
-                    archiveArtifacts artifacts: 'best_practices.txt', allowEmptyArchive: true
-                }
-            }
-        }
-        
-        stage('Docker Image Vulnerability Scanning') {
+
+        stage('Docker Image Vulnerability Scanning with Trivy') {
             steps {
                 script {
                     sh 'trivy image --severity HIGH,CRITICAL --format table $IMAGE_TAG > trivy-report.txt'
@@ -112,8 +81,8 @@ pipeline {
                 }
             }
         }
-        
-        stage('ZAP Scan') {
+
+        stage('OWASP ZAP Vulnerability Scanning') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                     script {
@@ -125,22 +94,34 @@ pipeline {
                         } else if (params.SCAN_TYPE == 'API') {
                             zapScript = 'zap-api-scan.py'
                             reportFile = 'zap_api_report.html'
-                        } else if (params.SCAN_TYPE == 'FULL') {
+                        } else {
                             zapScript = 'zap-full-scan.py'
                             reportFile = 'zap_full_report.html'
                         }
                         
-                        def status = sh(script: '''
+                        sh '''
                         docker run -v $PWD:/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
-                        ''' + zapScript + ''' -t https://jonathanjo.wixstudio.io/portfolio > ''' + reportFile, returnStatus: true)
+                        ''' + zapScript + ''' -t http://localhost:8080 > ''' + reportFile
                         
-                        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
+                        archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
                     }
                 }
             }
         }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                withCredentials([aws(credentialsId: 'aws-credentials', region: AWS_REGION)]) {
+                    sh """
+                        aws ecr get-login-password --region $AWS_REGION | \
+                        docker login --username AWS --password-stdin $ECR_REGISTRY
+                    """
+                    sh "docker push $IMAGE_TAG"
+                }
+            }
+        }
     }
-    
+
     post {
         success {
             slackNotify("SUCCESS")
@@ -153,44 +134,31 @@ pipeline {
         }
         always {
             script {
-                def jobName = env.JOB_NAME
-                def buildNumber = env.BUILD_NUMBER
-                def buildUrl = env.BUILD_URL
-                def pipelineStatus = currentBuild.result ?: 'UNKNOWN'
-                def bannerColor = (pipelineStatus == 'SUCCESS') ? 'green' : 'red'
-                
-                def commitId = env.GIT_COMMIT ?: 'N/A'
-                def triggeredBy = currentBuild.getBuildCauses().collect { cause -> cause.userId ?: 'Automated Trigger' }.join(", ")
-                
-                def body = """<html>
-                                <body>
-                                    <div style="border: 4px solid ${bannerColor}; padding: 10px;">
-                                        <h2>${jobName} - Build ${buildNumber}</h2>
-                                        <div style="background-color: ${bannerColor}; padding: 10px;">
-                                            <h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
-                                        </div>
-                                        <p><strong>Build URL:</strong> <a href="${buildUrl}">${buildUrl}</a></p>
-                                        <p><strong>Commit ID:</strong> ${commitId}</p>
-                                        <p><strong>Triggered By:</strong> ${triggeredBy}</p>
-                                    </div>
-                                </body>
-                              </html>"""
-
+                def body = """
+                    <html>
+                    <body>
+                        <div style="padding: 10px;">
+                            <h2>${env.JOB_NAME} - Build ${env.BUILD_NUMBER}</h2>
+                            <h3>Status: ${currentBuild.result ?: 'UNKNOWN'}</h3>
+                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                            <p><strong>Commit ID:</strong> ${env.GIT_COMMIT ?: 'N/A'}</p>
+                            <p><strong>Triggered By:</strong> ${currentBuild.getBuildCauses().collect { it.userId ?: 'Automated Trigger' }.join(", ")}</p>
+                        </div>
+                    </body>
+                    </html>
+                """
                 emailext (
-                    subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
+                    subject: "${env.JOB_NAME} - Build ${env.BUILD_NUMBER} - ${currentBuild.result ?: 'UNKNOWN'}",
                     body: body,
-                    to: 'jonathanjonathanjo10@gmail.com',
-                    from: 'jonathanjonathanjo10@gmail.com',
-                    replyTo: 'jonathanjonathanjo10@gmail.com',
+                    to: 'recipient@example.com',
                     mimeType: 'text/html',
-                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/zap_baseline_report.html'
+                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.txt, **/zap_*.html'
                 )
             }
         }
     }
 }
 
-// Function to send Slack notifications
 def slackNotify(String status) {
     def triggerAuthor = currentBuild.changeSets.collectMany { changeSet ->
         changeSet.items.collect { it.author.fullName }
