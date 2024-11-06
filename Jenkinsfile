@@ -95,8 +95,8 @@ pipeline {
         stage('Lint Dockerfile') {
             steps {
                 script {
-                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > best_practices.txt'
-                    archiveArtifacts artifacts: 'best_practices.txt', allowEmptyArchive: true
+                    sh 'docker run --rm -i hadolint/hadolint < Dockerfile > hadolint_report.txt'
+                    archiveArtifacts artifacts: 'hadolint_report.txt', allowEmptyArchive: true
                 }
             }
         }
@@ -181,7 +181,7 @@ pipeline {
                     from: 'jonathanjonathanjo10@gmail.com',
                     replyTo: 'jonathanjonathanjo10@gmail.com',
                     mimeType: 'text/html',
-                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/zap_baseline_report.html'
+                    attachmentsPattern: '**/trivy-report.pdf, **/hadolint_report.html, **/zap_baseline_report.html, **/zap_api_report.html, **/zap_full_report.html'
                 )
             }
         }
