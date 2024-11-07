@@ -16,4 +16,4 @@ ingress:
   enabled: true
   scheme: internet-facing
   targetType: ip
-  host: john.jonathanjo.great-site.net
+  host: petclinic.jonathanjo.great-site.net
