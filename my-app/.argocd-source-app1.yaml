@@ -4,7 +4,7 @@ helm:
     value: 836759839628.dkr.ecr.ap-south-1.amazonaws.com/jenkins/dockerimage
     forcestring: false
   - name: image.tag
-    value: "28"
+    value: "29"
     forcestring: true
   - name: replicaCount
     value: "1"
