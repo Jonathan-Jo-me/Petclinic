@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: test-applications1
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - appName: app1
+            imageRepo: 836759839628.dkr.ecr.ap-south-1.amazonaws.com/jenkins/dockerimage
+            imageTag: "25"
+            path: my-app
+            targetRevision: test
+          # - appName: app2
+          #   imageRepo: <image-repo-url>/dev2
+          #   imageTag: v1.0.0
+          #   path: test1-chart
+          #   targetRevision: main
+          # - appName: app3
+          #   imageRepo: <image-repo-url>/dev3
+          #   imageTag: v2.0.0
+          #   path: test2-chart
+          #   targetRevision: main
+  template:
+    metadata:
+      name: "{{appName}}"
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: "{{appName}}-image={{imageRepo}}:~{{imageTag}}"
+        argocd-image-updater.argoproj.io/{{appName}}-image.tag: "~{{imageTag}}"
+        argocd-image-updater.argoproj.io/{{appName}}-image.update-strategy: latest
+        argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/git-creds
+        argocd-image-updater.argoproj.io/git-branch: test
+    spec:
+      project: default
+      source:
+        repoURL: "https://github.com/Jonathan-Jo-me/Petclinic.git"
+        targetRevision: "test"
+        path: "{{path}}"
+        helm:
+          parameters:
+            - name: "image.repository"
+              value: "{{imageRepo}}"
+            - name: "image.tag"
+              value: "{{imageTag}}"
+            - name: "replicaCount"
+              value: "1"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "dev"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
