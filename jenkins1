@@ -50,6 +50,7 @@ pipeline {
           uploadFile: 'pipeline.log'
         )
 
+        echo "Webhook triggered. Response: ${response.status}"
         echo response.content
       }
     }
