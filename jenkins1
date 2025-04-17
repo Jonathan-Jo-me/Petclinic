@@ -40,20 +40,22 @@ pipeline {
       script {
         try {
           echo "Pipeline failed. Preparing to send logs to n8n..."
-
-          // Capture and write the pipeline logs
+  
           def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
           def logString = log.join("\n")
           writeFile file: 'pipeline.log', text: logString
-
-          // Use curl to send the file to the webhook
-          sh '''
-            curl -F 'file=@pipeline.log' https://n8n.hdie.webhook.com/efefrerferffrre
-          '''
-
-          echo "Logs successfully sent to n8n."
+  
+          def response = httpRequest(
+            httpMode: 'POST',
+            url: "https://clops.app.n8n.cloud/webhook/cd51c894-e55e-40ee-b674-eb1839605b78",
+            contentType: 'MULTIPART_FORM_DATA',
+            multipartName: 'file',
+            uploadFile: 'pipeline.log'
+          )
+  
+          echo "Webhook response: ${response.status} - ${response.content}"
         } catch (Exception e) {
-          echo "ERROR sending logs to n8n: ${e.message}"
+          echo "ERROR sending webhook: ${e.message}"
         }
       }
     }
