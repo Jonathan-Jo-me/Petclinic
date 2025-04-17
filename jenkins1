@@ -1,58 +1,10 @@
-// Jenkinsfile for Scenario 6 (Plugin does not exist)
 pipeline {
-  agent any
-
-  stages {
-    stage('Build') {
-      steps {
-        script {
-          sh '''
-            chmod +x mvnw
-            ./mvnw clean package
-            '''
+    agent any
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
         }
-      }
     }
-
-    stage('Containerization') {
-      steps{
-        script {
-          sh """
-            docker build -t spring-petclinic:${env.BUILD_NUMBER} .
-          """
-        }
-      }
-    }
-
-    // stage('Slack Notification') {
-    //   steps {
-    //     script {
-    //       slackSend channel: '#test-internal',
-    //         color: 'good',
-    //         message: "The pipeline ${env.JOB_NAME} with build number ${env.BUILD_NUMBER} has been completed successfully."
-    //     }
-    //   }
-    // }
-  }
-
-  post {
-    failure {
-      script {
-        def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
-        def logString = log.join("\n")
-        writeFile file: 'pipeline.log', text: logString
-
-        def response = httpRequest(
-          httpMode: 'POST',
-          url: "https://clops.app.n8n.cloud/webhook-test/cd51c894-e55e-40ee-b674-eb1839605b78",
-          contentType: 'APPLICATION_FORM_DATA',
-          multipartName: 'file',
-          uploadFile: 'pipeline.log'
-        )
-
-        echo response.content
-      }
-    }
-  }
 }
-
