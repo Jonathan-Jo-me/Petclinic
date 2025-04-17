@@ -36,28 +36,26 @@ pipeline {
   }
 
   post {
-    failure {
-      script {
-        try {
-          echo "Pipeline failed. Preparing to send logs to n8n..."
-  
-          def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
-          def logString = log.join("\n")
-          writeFile file: 'pipeline.log', text: logString
-  
-          def response = httpRequest(
-            httpMode: 'POST',
-            url: "https://clops.app.n8n.cloud/webhook/cd51c894-e55e-40ee-b674-eb1839605b78",
-            contentType: 'MULTIPART_FORM_DATA',
-            multipartName: 'file',
-            uploadFile: 'pipeline.log'
-          )
-  
-          echo "Webhook response: ${response.status} - ${response.content}"
-        } catch (Exception e) {
-          echo "ERROR sending webhook: ${e.message}"
-        }
+  failure {
+    script {
+      try {
+        echo "Getting full pipeline log..."
+
+        def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
+        writeFile file: 'pipeline.log', text: log.join("\n")
+
+        def response = httpRequest(
+          httpMode: 'POST',
+          url: 'https://clops.app.n8n.cloud/webhook/cd51c894-e55e-40ee-b674-eb1839605b78',
+          multipartName: 'file',
+          uploadFile: 'pipeline.log'
+        )
+
+        echo "Webhook response: ${response.status} - ${response.content}"
+      } catch (Exception e) {
+        echo "ERROR sending webhook: ${e.message}"
       }
     }
   }
+}
 }
