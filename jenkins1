@@ -1,17 +1,15 @@
 pipeline {
   agent any
 
-  environment {
-    JAVA_HOME = '/path/to/java'  // Replace with actual path
+  tools {
+    maven 'Maven'  // Use the Maven installation configured in Jenkins
   }
 
   stages {
     stage('Build') {
       steps {
         script {
-          sh '''
-            mvn clean package
-          '''
+          sh 'mvn clean package'
         }
       }
     }
@@ -19,9 +17,7 @@ pipeline {
     stage('Containerization') {
       steps {
         script {
-          sh """
-            docker build -t spring-petclinic:${env.BUILD_NUMBER} .
-          """
+          sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
         }
       }
     }
@@ -52,11 +48,13 @@ pipeline {
         }
       }
     }
-    success {
+    always {
       script {
+        def status = currentBuild.result ?: 'SUCCESS'
+        def color = (status == 'SUCCESS') ? 'good' : 'danger'
         slackSend channel: '#test-internal',
-          color: 'good',
-          message: "The pipeline ${env.JOB_NAME} with build number ${env.BUILD_NUMBER} has been completed successfully."
+          color: color,
+          message: "The pipeline ${env.JOB_NAME} with build number ${env.BUILD_NUMBER} has finished with status: ${status}"
       }
     }
   }
