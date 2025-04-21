@@ -1,13 +1,17 @@
 pipeline {
   agent any
 
+  tools {
+    maven 'Maven 3.8.1'
+    jdk 'JDK 11'
+  }
+
   stages {
     stage('Build') {
       steps {
         script {
           sh '''
-            chmod +x mvnw
-            ./mvnw clean package
+            mvn clean package
           '''
         }
       }
@@ -22,43 +26,32 @@ pipeline {
         }
       }
     }
-
-    // Uncomment and configure this stage if Slack notifications are needed
-    // stage('Slack Notification') {
-    //   steps {
-    //     script {
-    //       slackSend channel: '#test-internal',
-    //         color: 'good',
-    //         message: "The pipeline ${env.JOB_NAME} with build number ${env.BUILD_NUMBER} has been completed successfully."
-    //     }
-    //   }
-    // }
   }
 
   post {
-  failure {
-    script {
-      try {
-        echo "Getting full pipeline log..."
+    failure {
+      script {
+        try {
+          echo "Getting full pipeline log..."
 
-        def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
-def logText = log.join("\n")
+          def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
+          def logText = log.join("\n")
 
-// Construct JSON payload with log inside
-def payload = groovy.json.JsonOutput.toJson([log: logText])
+          // Construct JSON payload with log inside
+          def payload = groovy.json.JsonOutput.toJson([log: logText])
 
-def response = httpRequest(
-  httpMode: 'POST',
-  url: 'https://clops.app.n8n.cloud/webhook/cd51c894-e55e-40ee-b674-eb1839605b78',
-  contentType: 'APPLICATION_JSON',
-  requestBody: payload
-)
+          def response = httpRequest(
+            httpMode: 'POST',
+            url: 'https://clops.app.n8n.cloud/webhook/cd51c894-e55e-40ee-b674-eb1839605b78',
+            contentType: 'APPLICATION_JSON',
+            requestBody: payload
+          )
 
-echo "Webhook response: ${response.status} - ${response.content}"
-      } catch (Exception e) {
-        echo "ERROR sending webhook: ${e.message}"
+          echo "Webhook response: ${response.status} - ${response.content}"
+        } catch (Exception e) {
+          echo "ERROR sending webhook: ${e.message}"
+        }
       }
     }
   }
-}
 }
