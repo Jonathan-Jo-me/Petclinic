@@ -34,7 +34,7 @@ pipeline {
 
           def response = httpRequest(
             httpMode: 'POST',
-            url: 'https://clops.app.n8n.cloud/webhook-test/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
+            url: 'https://clops.app.n8n.cloud/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
             contentType: 'APPLICATION_JSON',
             requestBody: payload
           )
