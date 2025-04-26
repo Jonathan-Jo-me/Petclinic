@@ -1,17 +1,20 @@
 pipeline {
-  agent any
-
+  agent {
+    docker {
+      image 'maven:3.8.4-openjdk-11'
+      args '-v /root/.m2:/root/.m2'
+    }
+  }
 
   stages {
     stage('Build') {
       steps {
-        script {
-          sh 'mvn clean package'
-        }
+        sh 'mvn clean package'
       }
     }
 
     stage('Containerization') {
+      agent any
       steps {
         script {
           sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
