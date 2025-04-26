@@ -1,16 +1,17 @@
 pipeline {
-  agent {
- 
+  agent any
+
 
   stages {
     stage('Build') {
       steps {
-        sh 'mvn clean package'
+        script {
+          sh 'mvn clean package'
+        }
       }
     }
 
     stage('Containerization') {
-      agent any
       steps {
         script {
           sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
