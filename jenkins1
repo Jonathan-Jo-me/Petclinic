@@ -1,9 +1,6 @@
 pipeline {
   agent any
 
-  tools {
-    maven 'Maven'
-  }
 
   stages {
     stage('Build') {
@@ -37,7 +34,7 @@ pipeline {
 
           def response = httpRequest(
             httpMode: 'POST',
-            url: 'https://clops.app.n8n.cloud/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
+            url: 'http://18.212.153.217:5678/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
             contentType: 'APPLICATION_JSON',
             requestBody: payload
           )
