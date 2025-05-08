@@ -1,7 +1,7 @@
-FROM tomcat:9.0-jdk111
+FROM tomcat:9.0-jdk11
 
-COPY target/petlinic.war /usr/local/tomcat/webapps/ROOT.war
+COPY target/petclinic.war /usr/local/tomcat/webapps/ROOT.war
 
-EXPSE 8080
+EXPOSE 8080
 
 CMD ["catalina.sh", "run"]
