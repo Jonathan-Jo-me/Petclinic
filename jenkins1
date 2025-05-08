@@ -33,7 +33,7 @@ pipeline {
 
           def response = httpRequest(
             httpMode: 'POST',
-            url: 'http://18.212.153.217:5678/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
+            url: 'http://54.80.157.14:5678/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
             contentType: 'APPLICATION_JSON',
             requestBody: payload
           )
