@@ -1,14 +1,14 @@
 pipeline {
   agent any
 
-  stages {
-    stage('Build') {
-      steps {
-        script {
-          sh 'mvn clean package'
-        }
-      }
-    }
+  // stages {
+  //   stage('Build') {
+  //     steps {
+  //       script {
+  //         sh 'mvn clean package'
+  //       }
+  //     }
+  //   }
 
     stage('Containerization') {
       steps {
