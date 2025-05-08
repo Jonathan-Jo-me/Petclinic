@@ -17,7 +17,7 @@ pipeline {
     stage('Containerization') {
       steps {
         script {
-          sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
+          sh "dockr build -t spring-petclinic:${env.BUILD_NUMBER} ."
         }
       }
     }
