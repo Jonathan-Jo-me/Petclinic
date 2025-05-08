@@ -13,7 +13,7 @@ stages {
     stage('Containerization') {
       steps {
         script {
-          sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
+          sh "dcker build -t spring-petclinic:${env.BUILD_NUMBER} ."
         }
       }
     }
