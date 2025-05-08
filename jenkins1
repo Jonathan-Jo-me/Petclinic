@@ -1,44 +1,62 @@
 pipeline {
-    agent any
+  agent any
 
-    stages {
-        stage('Containerization') {
-            steps {
-                script {
-                    try {
-                        sh "docker build -t spring-petclinic:${env.BUILD_NUMBER} ."
-                    } catch (Exception e) {
-                        error "Docker build failed: ${e.message}"
-                    }
-                }
-            }
-        }
+  environment {
+    // Error: Reference to a non-existent credential ID
+    GIT_CREDS = credentials('non-existent-git-creds')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        // Error: Wrong repository URL (will fail)
+        git credentialsId: "${env.GIT_CREDS}", url: 'https://github.com/invalid/repo.git'
+      }
     }
-
-    post {
-        failure {
-            script {
-                try {
-                    echo "Getting full pipeline log..."
-
-                    def log = currentBuild.rawBuild.getLog(Integer.MAX_VALUE)
-                    def logText = log.join("\n")
-
-                    // Construct JSON payload with log inside
-                    def payload = groovy.json.JsonOutput.toJson([log: logText])
-
-                    def response = httpRequest(
-                        httpMode: 'POST',
-                        url: 'http://54.80.157.14:5678/webhook/d82dd1b1-1a68-423e-9ec1-f7c1894ce73b',
-                        contentType: 'APPLICATION_JSON',
-                        requestBody: payload
-                    )
-
-                    echo "Webhook response: ${response.status} - ${response.content}"
-                } catch (Exception e) {
-                    echo "ERROR sending webhook: ${e.message}"
-                }
-            }
-        }
+    stage('Build') {
+      steps {
+        // Error: Non-existent build tool
+        sh 'not-a-build-tool build'
+      }
     }
+    stage('Test') {
+      steps {
+        // Error: Reference to a missing script
+        sh './run_tests.sh'
+      }
+    }
+    stage('Deploy') {
+      steps {
+        // Error: Deploy script with typo in filename
+        sh 'bash deploy-prod.shh'
+      }
+    }
+  }
+
+  post {
+    failure {
+      script {
+        try {
+          echo "Collecting pipeline logs..."
+
+          // Error: Using a restricted method (may not work in sandboxed Jenkins)
+          def log = currentBuild.rawBuild.getLog(1000)
+          def logText = log.join("\n")
+
+          // Error: Sending logs to an insecure HTTP endpoint
+          def payload = groovy.json.JsonOutput.toJson([log: logText])
+          def response = httpRequest(
+            httpMode: 'POST',
+            url: 'http://example.com/webhook',
+            contentType: 'APPLICATION_JSON',
+            requestBody: payload
+          )
+
+          echo "Webhook response: ${response.status} - ${response.content}"
+        } catch (Exception e) {
+          echo "ERROR sending webhook: ${e.message}"
+        }
+      }
+    }
+  }
 }
