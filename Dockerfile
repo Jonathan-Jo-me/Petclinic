@@ -4,4 +4,4 @@ COPY target/petclinic.war /usr/local/tomcat/webapps/ROOT.war
 
 EXPOSE 8080
 
-CD ["catalina.sh", "run"]
+CMD ["catalina.sh", "run"]
